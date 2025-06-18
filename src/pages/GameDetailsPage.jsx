@@ -19,62 +19,58 @@ const GameDetailsPage = () => {
   const loadGameData = async () => {
     setLoading(true)
     try {
-      if (window.electronAPI?.database) {
-        const gameData = await window.electronAPI.database.getGame(appId)
+      if (window.electronAPI?.database && window.electronAPI?.steam) {
+        // First check if we have cached data
+        let gameData = await window.electronAPI.database.getGame(appId)
+        
+        // If no cached data, fetch from Steam
+        if (!gameData) {
+          console.log('Fetching game details from Steam for appId:', appId)
+          gameData = await window.electronAPI.steam.getGameDetails(appId)
+          
+          // Save to database for future use
+          if (gameData) {
+            await window.electronAPI.database.saveGame(gameData)
+          }
+        }
+        
+        // Check for existing summary
         const summaryData = await window.electronAPI.database.getSummary(appId)
         
-        setGame(gameData || getMockGameData())
+        setGame(gameData)
         setSummary(summaryData || null)
       } else {
-        setGame(getMockGameData())
-        setSummary(getMockSummaryData())
+        console.log('Electron API not available, please run with npm run dev')
+        setGame({
+          appid: appId,
+          name: 'Please run the app using npm run dev',
+          developer: 'Steam API requires Electron',
+          publisher: 'See getting-started.md',
+          release_date: 'N/A',
+          price: 'N/A',
+          description: 'The Steam API is only available when running the app through Electron.',
+          header_image: 'https://via.placeholder.com/460x215?text=Run+with+Electron',
+          total_reviews: 0
+        })
       }
     } catch (error) {
       console.error('Failed to load game data:', error)
-      setGame(getMockGameData())
+      setGame({
+        appid: appId,
+        name: 'Error loading game',
+        developer: 'Error',
+        publisher: 'Error',
+        release_date: 'N/A',
+        price: 'N/A',
+        description: error.message || 'Failed to fetch game details from Steam',
+        header_image: 'https://via.placeholder.com/460x215?text=Error',
+        total_reviews: 0
+      })
     } finally {
       setLoading(false)
     }
   }
 
-  const getMockGameData = () => ({
-    appid: appId,
-    name: appId === '570' ? 'Dota 2' : 'Sample Game',
-    developer: 'Valve',
-    publisher: 'Valve',
-    release_date: '2013-07-09',
-    price: 'Free',
-    description: 'A multiplayer online battle arena game.',
-    header_image: 'https://via.placeholder.com/460x215?text=Game+Image',
-    total_reviews: 1250000
-  })
-
-  const getMockSummaryData = () => ({
-    overall_sentiment: 8.2,
-    sentiment_breakdown: {
-      positive: 75,
-      mixed: 15,
-      negative: 10
-    },
-    positive_aspects: [
-      'Excellent gameplay mechanics',
-      'Great graphics and visuals',
-      'Strong community support',
-      'Regular updates and content'
-    ],
-    negative_aspects: [
-      'Steep learning curve',
-      'Some performance issues',
-      'Occasional bugs'
-    ],
-    common_themes: [
-      { theme: 'Gameplay', mentions: 450, sentiment: 8.5 },
-      { theme: 'Graphics', mentions: 320, sentiment: 8.1 },
-      { theme: 'Performance', mentions: 280, sentiment: 6.8 },
-      { theme: 'Story', mentions: 210, sentiment: 7.9 }
-    ],
-    generated_at: new Date().toISOString()
-  })
 
   const handleStartAnalysis = async () => {
     setProcessing(true)
@@ -89,13 +85,16 @@ const GameDetailsPage = () => {
         
         setSummary(result.summary)
         setGame(result.game)
+        
+        // Reload the page data to show the new summary
+        await loadGameData()
       } else {
-        await new Promise(resolve => setTimeout(resolve, 3000))
-        setSummary(getMockSummaryData())
+        console.error('Processing API not available. Please run the app with npm run dev')
+        alert('Please run the app using Electron to analyze games. See getting-started.md for instructions.')
       }
     } catch (error) {
       console.error('Analysis failed:', error)
-      setSummary(getMockSummaryData())
+      alert(`Analysis failed: ${error.message || 'Unknown error'}`)
     } finally {
       setProcessing(false)
     }
