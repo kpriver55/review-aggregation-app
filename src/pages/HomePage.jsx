@@ -10,33 +10,38 @@ const HomePage = () => {
 
   const handleSearch = async (query) => {
     setIsSearching(true)
+    console.log('Searching for:', query)
+    console.log('ElectronAPI available:', !!window.electronAPI)
+    console.log('Steam API available:', !!window.electronAPI?.steam)
+    
     try {
       if (window.electronAPI?.steam?.searchGames) {
+        console.log('Using Electron Steam API')
         const results = await window.electronAPI.steam.searchGames(query)
+        console.log('Search results:', results)
         setSearchResults(results)
       } else {
-        console.log('Development mode: Mock search for:', query)
-        setSearchResults([
-          {
-            appid: 570,
-            name: 'Dota 2',
-            developer: 'Valve',
-            price: 'Free',
-            release_date: '2013-07-09',
-            header_image: 'https://via.placeholder.com/460x215?text=Dota+2'
-          },
-          {
-            appid: 730,
-            name: 'Counter-Strike 2',
-            developer: 'Valve',
-            price: 'Free',
-            release_date: '2012-08-21',
-            header_image: 'https://via.placeholder.com/460x215?text=CS2'
-          }
-        ])
+        console.log('ElectronAPI not available, showing message')
+        // Show a message that the app needs to be run in Electron
+        setSearchResults([{
+          appid: 0,
+          name: 'Please run the app using npm run dev',
+          developer: 'Steam API requires Electron',
+          price: 'N/A',
+          release_date: 'N/A',
+          header_image: 'https://via.placeholder.com/460x215?text=Run+with+Electron'
+        }])
       }
     } catch (error) {
       console.error('Search failed:', error)
+      setSearchResults([{
+        appid: 0,
+        name: 'Search failed: ' + error.message,
+        developer: 'Error',
+        price: 'N/A',
+        release_date: 'N/A',
+        header_image: 'https://via.placeholder.com/460x215?text=Error'
+      }])
     } finally {
       setIsSearching(false)
     }
