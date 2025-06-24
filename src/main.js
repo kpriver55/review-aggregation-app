@@ -273,26 +273,39 @@ ipcMain.handle('settings-load', async (event) => {
 });
 
 ipcMain.handle('process-game-analysis', async (event, appId, options = {}) => {
+  const sendProgress = (step, progress, message) => {
+    event.sender.send('analysis-progress', { appId, step, progress, message });
+  };
+  
   try {
+    // Add to processing queue if not already there
+    await database.addToProcessingQueue(appId);
     await database.updateProcessingStatus(appId, 'processing', 0);
+    sendProgress('init', 0, 'Starting analysis...');
     
     let gameData = await database.getGame(appId);
     if (!gameData) {
+      sendProgress('game-details', 10, 'Fetching game information from Steam...');
       gameData = await steamAPI.getGameDetails(appId);
       await database.saveGame(gameData);
+    } else {
+      sendProgress('game-details', 15, 'Loading game information from cache...');
     }
     
     await database.updateProcessingStatus(appId, 'processing', 20);
+    sendProgress('reviews', 20, 'Fetching reviews from Steam API...');
     
     const reviews = await steamAPI.getGameReviews(appId, options);
     await database.saveReviews(appId, reviews);
     
     await database.updateProcessingStatus(appId, 'processing', 60);
+    sendProgress('ai-analysis', 60, `Analyzing ${reviews.length} reviews with AI... This may take a few minutes.`);
     
     const summary = await llmService.generateSummary(reviews, gameData);
     await database.saveSummary(appId, summary);
     
     await database.updateProcessingStatus(appId, 'completed', 100);
+    sendProgress('complete', 100, 'Analysis complete!');
     
     return {
       game: gameData,
@@ -303,5 +316,14 @@ ipcMain.handle('process-game-analysis', async (event, appId, options = {}) => {
     await database.updateProcessingStatus(appId, 'failed', 0, error.message);
     console.error('Game analysis failed:', error);
     throw error;
+  }
+});
+
+ipcMain.handle('get-processing-queue', async (event) => {
+  try {
+    return await database.getProcessingQueue();
+  } catch (error) {
+    console.error('Failed to get processing queue:', error);
+    return [];
   }
 });

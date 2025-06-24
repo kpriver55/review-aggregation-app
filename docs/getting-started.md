@@ -2,9 +2,21 @@
 
 This document explains how to properly run the application with full Steam API access.
 
+## Prerequisites
+
+### Linux/WSL Users - Install Required Dependencies First
+
+Before running the application, you must install the required system dependencies:
+
+```bash
+sudo apt install libgtk-3-0 libnotify4 libnss3 libxss1 libxtst6 xdg-utils libatspi2.0-0 libsecret-1-0 libgbm1 libasound2
+```
+
+**Important:** The `libnss3` package is essential - without it, you'll get an error like "cannot open shared object file: libnss3.so". The `libgbm1` and `libasound2` packages are also required for proper Electron functionality.
+
 ## Quick Start
 
-The simplest way to run the application:
+After installing prerequisites (Linux/WSL users), the simplest way to run the application:
 
 ```bash
 npm run dev
@@ -56,20 +68,17 @@ NODE_ENV=development npx electron .
 This appears when you're using the browser tab instead of the Electron window. Make sure you're using the desktop application window, not your web browser.
 
 ### No Electron window appears (WSL/Linux users)
-1. Ensure you have a display server running:
+1. **First, make sure you installed the required dependencies** (see Prerequisites section above)
+
+2. Ensure you have a display server running:
    - WSL2 users: WSLg should handle this automatically on Windows 11
    - Linux users: Make sure X11 is running
    
-2. Check your DISPLAY variable:
+3. Check your DISPLAY variable:
    ```bash
    echo $DISPLAY
    ```
    Should output something like `:0` or `:0.0`
-
-3. Install required dependencies:
-   ```bash
-   sudo apt install libgtk-3-0 libnotify4 libnss3 libxss1 libxtst6 xdg-utils libatspi2.0-0 libsecret-1-0
-   ```
 
 ### White/blank Electron window
 This means Electron launched but can't connect to the Vite server. Make sure:

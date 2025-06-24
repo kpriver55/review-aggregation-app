@@ -4,6 +4,7 @@ import { Star, ThumbsUp, ThumbsDown, MessageCircle, ExternalLink, Play } from 'l
 import SentimentChart from '../components/SentimentChart'
 import ReviewSummary from '../components/ReviewSummary'
 import LoadingSpinner from '../components/LoadingSpinner'
+import AnalysisProgress from '../components/AnalysisProgress'
 
 const GameDetailsPage = () => {
   const { appId } = useParams()
@@ -95,9 +96,18 @@ const GameDetailsPage = () => {
     } catch (error) {
       console.error('Analysis failed:', error)
       alert(`Analysis failed: ${error.message || 'Unknown error'}`)
-    } finally {
-      setProcessing(false)
     }
+  }
+
+  const handleAnalysisComplete = () => {
+    setProcessing(false)
+    loadGameData() // Refresh data to show new summary
+  }
+
+  const handleAnalysisError = (error) => {
+    setProcessing(false)
+    console.error('Analysis failed:', error)
+    alert(`Analysis failed: ${error.message || 'Unknown error'}`)
   }
 
   if (loading) {
@@ -161,7 +171,12 @@ const GameDetailsPage = () => {
       )}
 
       {processing && (
-        <LoadingSpinner message="Analyzing reviews... This may take a few minutes." />
+        <AnalysisProgress 
+          gameId={appId}
+          gameName={game.name}
+          onComplete={handleAnalysisComplete}
+          onError={handleAnalysisError}
+        />
       )}
 
       {summary && (

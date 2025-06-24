@@ -102,7 +102,11 @@ class SteamAPI {
         params: {
           appids: appId,
           filters: 'basic'
-        }
+        },
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        },
+        timeout: 10000
       });
 
       const gameData = response.data[appId];
@@ -137,11 +141,18 @@ class SteamAPI {
     } = options;
 
     try {
+      console.log(`Fetching reviews for appId: ${appId}, maxReviews: ${maxReviews}`);
+      
       const reviews = [];
       let cursor = '*';
       const batchSize = 100;
+      let requestCount = 0;
+      const maxRequests = 20; // Prevent infinite loops
 
-      while (reviews.length < maxReviews && cursor !== null) {
+      while (reviews.length < maxReviews && cursor !== null && requestCount < maxRequests) {
+        requestCount++;
+        console.log(`Making request ${requestCount}, cursor: ${cursor}, reviews so far: ${reviews.length}`);
+        
         const response = await axios.get('https://store.steampowered.com/appreviews/' + appId, {
           params: {
             json: 1,
@@ -150,10 +161,16 @@ class SteamAPI {
             filter: 'recent',
             review_type: reviewType,
             num_per_page: Math.min(batchSize, maxReviews - reviews.length)
-          }
+          },
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          },
+          timeout: 10000 // 10 second timeout
         });
 
-        if (response.data && response.data.reviews) {
+        console.log(`Response status: ${response.status}, data success: ${response.data?.success}`);
+
+        if (response.data && response.data.success === 1 && response.data.reviews) {
           const batchReviews = response.data.reviews.map(review => ({
             recommendationid: review.recommendationid,
             author: {
@@ -179,17 +196,41 @@ class SteamAPI {
 
           reviews.push(...batchReviews);
           cursor = response.data.cursor;
+          
+          console.log(`Added ${batchReviews.length} reviews, total: ${reviews.length}, next cursor: ${cursor}`);
 
-          await new Promise(resolve => setTimeout(resolve, 100));
+          // Rate limiting
+          await new Promise(resolve => setTimeout(resolve, 250));
         } else {
+          console.log('No more reviews or invalid response, breaking loop');
           break;
         }
       }
 
+      console.log(`Finished fetching reviews. Total: ${reviews.length}`);
       return reviews;
     } catch (error) {
-      console.error('Failed to get game reviews:', error);
-      throw new Error('Failed to fetch game reviews');
+      console.error('Failed to get game reviews:', error.message);
+      console.error('Error details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
+      
+      // Provide more specific error messages
+      if (error.code === 'ENOTFOUND') {
+        throw new Error('Network error: Unable to connect to Steam API');
+      } else if (error.code === 'ETIMEDOUT') {
+        throw new Error('Request timeout: Steam API took too long to respond');
+      } else if (error.response?.status === 403) {
+        throw new Error('Access denied: Steam API blocked the request');
+      } else if (error.response?.status === 429) {
+        throw new Error('Rate limited: Too many requests to Steam API');
+      } else if (error.response?.status === 500) {
+        throw new Error('Steam API server error');
+      } else {
+        throw new Error(`Failed to fetch game reviews: ${error.message}`);
+      }
     }
   }
 

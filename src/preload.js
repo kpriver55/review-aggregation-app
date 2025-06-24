@@ -33,5 +33,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   processing: {
     startAnalysis: (appId, options) => ipcRenderer.invoke('process-game-analysis', appId, options),
+    getQueue: () => ipcRenderer.invoke('get-processing-queue'),
+    onProgress: (callback) => {
+      ipcRenderer.on('analysis-progress', (event, data) => callback(data));
+      return () => ipcRenderer.removeAllListeners('analysis-progress');
+    },
   },
 });
